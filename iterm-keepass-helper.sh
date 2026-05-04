@@ -45,7 +45,7 @@ while [[ $i -lt ${#args[@]} ]]; do
 done
 
 # Now inject --key-file after the command
-keepass_keyfile="/Users/jeff.haynes_cn/.keepass/keepass-keyfile.keyx"
+keepass_keyfile="/Users/jeff.haynes_cn/.keepassxc/CACI-SecureResources.keyx"
 
 # For ls command with --flatten --recursive, prepend "iTerm2/" to all output lines
 # For show/edit/rm commands, REMOVE iTerm2/ prefix from entry path (inverse transform)
@@ -53,7 +53,8 @@ if [[ "$keepass_cmd" == "ls" ]] && [[ " ${cmd_args[@]} " =~ " --flatten " ]] && 
     # List command: transform output to add iTerm2/ prefix
     # Read all stdin first (password), then run command with it
     stdin_content=$(cat)
-    echo "$stdin_content" | /Users/jeff.haynes_cn/Applications/KeePassXC.app/Contents/MacOS/keepassxc-cli "${keepass_cmd}" "${cmd_args[@]}" --key-file "${keepass_keyfile}" "${positional_args[@]}" | while IFS= read -r line; do
+#    echo "$stdin_content" | /Users/jeff.haynes_cn/Applications/KeePassXC.app/Contents/MacOS/keepassxc-cli "${keepass_cmd}" "${cmd_args[@]}" --key-file "${keepass_keyfile}" "${positional_args[@]}" | while IFS= read -r line; do
+    echo "$stdin_content" | /opt/homebrew/bin/keepassxc-cli "${keepass_cmd}" "${cmd_args[@]}" --key-file "${keepass_keyfile}" "${positional_args[@]}" | while IFS= read -r line; do
         # Skip empty lines, Recycle Bin, folder-only entries (trailing /), and lines already starting with iTerm2/
         if [[ -n "$line" ]] && [[ ! "$line" =~ ^Recycle\ Bin ]] && [[ ! "$line" =~ /$ ]] && [[ ! "$line" =~ ^iTerm2/ ]]; then
             echo "iTerm2/$line"
