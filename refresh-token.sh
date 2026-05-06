@@ -17,6 +17,19 @@ KEEPASS_ENTRY="DevOpsBase"
 MODE="${1:-both}"  # Default to 'both' if no argument
 
 case "$MODE" in
+  -h|--help|help)
+    echo "Usage: $0 [artifactory|bitbucket|both]"
+    echo ""
+    echo "Modes:"
+    echo "  artifactory - Only get Artifactory token (reference_token) and save to .artifactory_credentials"
+    echo "  bitbucket   - Only get Bitbucket token and save to keychain"
+    echo "  both        - Get both tokens (default)"
+    echo ""
+    echo "Requirements:"
+    echo "  - KeePassXC database password stored in macOS Keychain"
+    echo "  - Run: security add-generic-password -a 'CACI-SecureResources' -s 'KeePassXC-DB' -w"
+    exit 0
+    ;;
   artifactory|bitbucket|both)
     # Valid mode
     ;;
@@ -38,12 +51,12 @@ if [ -z "$KEEPASS_DB_PASSWORD" ]; then
   exit 1
 fi
 
-# Get password from KeePassXC
+# Get password from KeePassXC (suppress password prompt on stderr)
 DEVOPS_BASE_PASSWORD=$(echo "$KEEPASS_DB_PASSWORD" | keepassxc-cli show \
   --key-file "${KEEPASS_KEYFILE}" \
   -s -a Password \
   "${KEEPASS_DB}" \
-  "${KEEPASS_ENTRY}")
+  "${KEEPASS_ENTRY}" 2>/dev/null)
 
 if [ -z "$DEVOPS_BASE_PASSWORD" ]; then
   echo "❌ Failed to retrieve password from KeePassXC"
@@ -54,7 +67,7 @@ fi
 # Artifactory Token
 # ============================================================================
 if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
-  read -p "Enter SurePass code for Artifactory: " SUREPASS_CODE_ARTIFACTORY
+  read -p "Enter SurePass code for Artifactory (reference_token): " SUREPASS_CODE_ARTIFACTORY
 
   if [ -z "$SUREPASS_CODE_ARTIFACTORY" ]; then
     echo "❌ SurePass code cannot be empty"
