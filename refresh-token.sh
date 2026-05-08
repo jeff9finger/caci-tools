@@ -5,8 +5,10 @@ set -e
 
 # Configuration
 USERNAME="jhaynes"
-ARTIFACTORY_URL="https://artifactory.devopsbase.com"
+ARTIFACTORY_HOST="artifactory.devopsbase.com"
+ARTIFACTORY_URL="https://${ARTIFACTORY_HOST}"
 BITBUCKET_HOST="bitbucket.devopsbase.com"
+DO_SERVER_FOLDER="${HOME}/projects/do-dashboard-server"
 
 # KeePassXC Configuration
 KEEPASS_DB="${HOME}/.keepassxc/CACI-SecureResources.kdbx"
@@ -14,20 +16,20 @@ KEEPASS_KEYFILE="${HOME}/.keepassxc/CACI-SecureResources.keyx"
 KEEPASS_ENTRY="DevOpsBase"
 
 # Determine mode
-MODE="${1:-both}"  # Default to 'both' if no argument
+MODE="${1:-artifactory}"  # Default to 'artifactory' if no argument
 
 case "$MODE" in
   -h|--help|help)
     echo "Usage: $0 [artifactory|bitbucket|both]"
     echo ""
     echo "Modes:"
-    echo "  artifactory - Only get Artifactory token (reference_token) and save to .artifactory_credentials"
+    echo "  artifactory - Only get Artifactory token and save to .artifactory_credentials and keychain (default)"
     echo "  bitbucket   - Only get Bitbucket token and save to keychain"
-    echo "  both        - Get both tokens (default)"
+    echo "  both        - Get both tokens"
     echo ""
-    echo "Requirements:"
-    echo "  - KeePassXC database password stored in macOS Keychain"
-    echo "  - Run: security add-generic-password -a 'CACI-SecureResources' -s 'KeePassXC-DB' -w"
+#    echo "Prerequisites:"
+#    echo "  - KeePassXC database password stored in macOS Keychain"
+#    echo "  - Run: security add-generic-password -a 'CACI-SecureResources' -s 'KeePassXC-DB' -w"
     exit 0
     ;;
   artifactory|bitbucket|both)
@@ -35,9 +37,9 @@ case "$MODE" in
     ;;
   *)
     echo "Usage: $0 [artifactory|bitbucket|both]"
-    echo "  artifactory - Only get Artifactory token and save to .artifactory_credentials"
+    echo "  artifactory - Only get Artifactory token and save to .artifactory_credentials and keychain (default)"
     echo "  bitbucket   - Only get Bitbucket token and save to keychain"
-    echo "  both        - Get both tokens (default)"
+    echo "  both        - Get both tokens"
     exit 1
     ;;
 esac
@@ -67,7 +69,7 @@ fi
 # Artifactory Token
 # ============================================================================
 if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
-  read -p "Enter SurePass code for Artifactory (reference_token): " SUREPASS_CODE_ARTIFACTORY
+  read -p "Enter SurePass code for Artifactory: " SUREPASS_CODE_ARTIFACTORY
 
   if [ -z "$SUREPASS_CODE_ARTIFACTORY" ]; then
     echo "❌ SurePass code cannot be empty"
@@ -92,7 +94,7 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
   # Remove any trailing '%' or whitespace that might interfere with JSON parsing
   ARTIFACTORY_RESPONSE=$(echo "$ARTIFACTORY_RESPONSE" | tr -d '\000-\037' | sed 's/%$//')
 
-  # Extract tokens for Artifactory
+  # Extract reference_token from Artifactory API response
   REFERENCE_TOKEN=$(echo "$ARTIFACTORY_RESPONSE" | jq -r '.reference_token // empty')
 
   if [ -z "$REFERENCE_TOKEN" ]; then
@@ -101,13 +103,41 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
     exit 1
   fi
 
-  # Save to .artifactory_credentials in current directory
-  cat > .artifactory_credentials <<EOF
+  # Save Artifactory reference_token in the keychain for maven and other tools.
+  # Get the token from the keychain: security find-internet-password -a "jhaynes" -s "artifactory.devopsbase.com" -w
+  # Delete existing entry if it exists (ignore errors)
+  security delete-internet-password \
+    -a "${USERNAME}" \
+    -s "${ARTIFACTORY_HOST}" \
+    2>/dev/null || true
+
+  # Store for Artifactory
+  security add-internet-password \
+    -a "${USERNAME}" \
+    -s "${ARTIFACTORY_HOST}" \
+    -w "${REFERENCE_TOKEN}" \
+    -r "htps"  # htps is the 4-character protocol code for HTTPS
+
+  ADD_EXIT=$?
+  if [ $ADD_EXIT -ne 0 ]; then
+    echo "❌ Failed to add Artifactory token to keychain (exit code: $ADD_EXIT)"
+    exit 1
+  else
+    echo "✓ Saved Artifactory token to keychain"
+  fi
+
+  # Save to .artifactory_credentials in DO server folder
+  if [ ! -d "${DO_SERVER_FOLDER}" ]; then
+    echo "❌ Directory not found: ${DO_SERVER_FOLDER}"
+    exit 1
+  fi
+
+  cat > "${DO_SERVER_FOLDER}"/.artifactory_credentials <<EOF
 ARTIFACTORY_USERNAME=${USERNAME}
 ARTIFACTORY_KEY=${REFERENCE_TOKEN}
 EOF
-  chmod 600 .artifactory_credentials
-  echo "✓ Saved Artifactory credentials to .artifactory_credentials"
+  chmod 600 "${DO_SERVER_FOLDER}"/.artifactory_credentials
+  echo "✓ Saved Artifactory credentials to ${DO_SERVER_FOLDER}/.artifactory_credentials"
 fi
 
 # ============================================================================
@@ -139,7 +169,7 @@ if [ "$MODE" = "bitbucket" ] || [ "$MODE" = "both" ]; then
     exit 1
   fi
 
-  # Extract token
+  # Extract access_token from Bitbucket API response (field name is "token")
   ACCESS_TOKEN=$(echo "$RESPONSE" | jq -r '.token // empty')
 
   if [ -z "$ACCESS_TOKEN" ]; then
@@ -154,12 +184,14 @@ if [ "$MODE" = "bitbucket" ] || [ "$MODE" = "both" ]; then
     -s "${BITBUCKET_HOST}" \
     2>/dev/null || true
 
-  # Store for Bitbucket
+  # This allows git commands to pick up the authentication from the macos keychain
+
+  # Store Bitbucket access_token in keychain so git commands can authenticate automatically
   security add-internet-password \
     -a "${USERNAME}" \
     -s "${BITBUCKET_HOST}" \
     -w "${ACCESS_TOKEN}" \
-    -r "htps"
+    -r "htps"  # htps is the 4-character protocol code for HTTPS
 
   ADD_EXIT=$?
   if [ $ADD_EXIT -ne 0 ]; then
