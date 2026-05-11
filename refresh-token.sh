@@ -104,9 +104,22 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
   fi
 
   # Save Artifactory reference_token in KeePassXC for Maven extension
-  # Update the existing CDE Artifactory entry with the new token
-  # Need to provide both: DB password on stdin, entry password via --password-prompt
-  (echo "$KEEPASS_DB_PASSWORD"; echo "$REFERENCE_TOKEN") | keepassxc-cli edit \
+  # If KeePassXC GUI is open, we need to close it to avoid conflicts
+  KEEPASSXC_RUNNING=false
+  if pgrep -x "KeePassXC" > /dev/null; then
+    KEEPASSXC_RUNNING=true
+    echo "⏸️  Closing KeePassXC to update database..."
+    osascript -e 'quit app "KeePassXC"' 2>/dev/null
+    sleep 2
+  fi
+
+  # Remove existing entry and re-add with new token (more reliable than edit)
+  echo "$KEEPASS_DB_PASSWORD" | keepassxc-cli rm \
+    --key-file "${KEEPASS_KEYFILE}" \
+    "${KEEPASS_DB}" \
+    "CDE Artifactory" 2>/dev/null || true
+
+  (echo "$KEEPASS_DB_PASSWORD"; echo "$REFERENCE_TOKEN") | keepassxc-cli add \
     --key-file "${KEEPASS_KEYFILE}" \
     --username "${USERNAME}" \
     --url "https://artifactory.devopsbase.com" \
@@ -116,6 +129,31 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
 
   if [ $? -eq 0 ]; then
     echo "✓ Saved Artifactory token to KeePassXC"
+
+    # Reopen and auto-unlock KeePassXC if it was running
+    if [ "$KEEPASSXC_RUNNING" = true ]; then
+      echo "🔓 Reopening and unlocking KeePassXC..."
+      open -a KeePassXC
+      sleep 2
+
+      # Auto-unlock the database using AppleScript
+      osascript <<EOF 2>/dev/null
+tell application "System Events"
+    tell process "KeePassXC"
+        set frontmost to true
+        keystroke "${KEEPASS_DB_PASSWORD}"
+        keystroke return
+    end tell
+end tell
+EOF
+
+      if [ $? -eq 0 ]; then
+        echo "✓ KeePassXC unlocked automatically"
+      else
+        echo "⚠️  Could not auto-unlock KeePassXC - you may need to unlock it manually"
+        echo "   (Requires System Preferences > Security & Privacy > Accessibility permissions)"
+      fi
+    fi
   else
     echo "⚠️  Failed to save token to KeePassXC (continuing anyway)"
   fi
