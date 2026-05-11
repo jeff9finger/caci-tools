@@ -105,13 +105,14 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
 
   # Save Artifactory reference_token in KeePassXC for Maven extension
   # Update the existing CDE Artifactory entry with the new token
-  echo "$KEEPASS_DB_PASSWORD" | keepassxc-cli edit \
+  # Need to provide both: DB password on stdin, entry password via --password-prompt
+  (echo "$KEEPASS_DB_PASSWORD"; echo "$REFERENCE_TOKEN") | keepassxc-cli edit \
     --key-file "${KEEPASS_KEYFILE}" \
     --username "${USERNAME}" \
     --url "https://artifactory.devopsbase.com" \
     --password-prompt \
     "${KEEPASS_DB}" \
-    "CDE Artifactory" <<< "$REFERENCE_TOKEN" 2>/dev/null
+    "CDE Artifactory" 2>/dev/null
 
   if [ $? -eq 0 ]; then
     echo "✓ Saved Artifactory token to KeePassXC"
