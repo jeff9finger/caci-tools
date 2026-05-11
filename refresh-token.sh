@@ -104,22 +104,9 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
   fi
 
   # Save Artifactory reference_token in KeePassXC for Maven extension
-  # If KeePassXC GUI is open, we need to close it to avoid conflicts
-  KEEPASSXC_RUNNING=false
-  if pgrep -x "KeePassXC" > /dev/null; then
-    KEEPASSXC_RUNNING=true
-    echo "⏸️  Closing KeePassXC to update database..."
-    osascript -e 'quit app "KeePassXC"' 2>/dev/null
-    sleep 2
-  fi
-
-  # Remove existing entry and re-add with new token (more reliable than edit)
-  echo "$KEEPASS_DB_PASSWORD" | keepassxc-cli rm \
-    --key-file "${KEEPASS_KEYFILE}" \
-    "${KEEPASS_DB}" \
-    "CDE Artifactory" 2>/dev/null || true
-
-  (echo "$KEEPASS_DB_PASSWORD"; echo "$REFERENCE_TOKEN") | keepassxc-cli add \
+  # KeePassXC has built-in file watching - it will auto-reload when we update via CLI
+  # Need to provide both: DB password on stdin, entry password via --password-prompt
+  (echo "$KEEPASS_DB_PASSWORD"; echo "$REFERENCE_TOKEN") | keepassxc-cli edit \
     --key-file "${KEEPASS_KEYFILE}" \
     --username "${USERNAME}" \
     --url "https://artifactory.devopsbase.com" \
@@ -127,18 +114,11 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
     "${KEEPASS_DB}" \
     "CDE Artifactory" 2>/dev/null
 
-  ADD_SUCCESS=$?
-  if [ $ADD_SUCCESS -eq 0 ]; then
+  if [ $? -eq 0 ]; then
     echo "✓ Saved Artifactory token to KeePassXC"
+    echo "   (KeePassXC GUI will auto-reload the changes if open)"
   else
     echo "⚠️  Failed to save token to KeePassXC (continuing anyway)"
-  fi
-
-  # Reopen KeePassXC if it was running (regardless of add success)
-  if [ "$KEEPASSXC_RUNNING" = true ]; then
-    echo "🔓 Reopening KeePassXC..."
-    open -a KeePassXC
-    echo "   Please unlock the database manually to see the updated token"
   fi
 
   # Save Artifactory reference_token in the keychain for maven and other tools.
