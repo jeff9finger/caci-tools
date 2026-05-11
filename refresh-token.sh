@@ -134,29 +134,11 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
     echo "⚠️  Failed to save token to KeePassXC (continuing anyway)"
   fi
 
-  # Reopen and auto-unlock KeePassXC if it was running (regardless of add success)
+  # Reopen KeePassXC if it was running (regardless of add success)
   if [ "$KEEPASSXC_RUNNING" = true ]; then
-    echo "🔓 Reopening and unlocking KeePassXC..."
+    echo "🔓 Reopening KeePassXC..."
     open -a KeePassXC
-    sleep 2
-
-    # Auto-unlock the database using AppleScript
-    osascript <<EOF 2>/dev/null
-tell application "System Events"
-    tell process "KeePassXC"
-        set frontmost to true
-        keystroke "${KEEPASS_DB_PASSWORD}"
-        keystroke return
-    end tell
-end tell
-EOF
-
-    if [ $? -eq 0 ]; then
-      echo "✓ KeePassXC unlocked automatically"
-    else
-      echo "⚠️  Could not auto-unlock KeePassXC - you may need to unlock it manually"
-      echo "   (Requires System Preferences > Security & Privacy > Accessibility permissions)"
-    fi
+    echo "   Please unlock the database manually to see the updated token"
   fi
 
   # Save Artifactory reference_token in the keychain for maven and other tools.
