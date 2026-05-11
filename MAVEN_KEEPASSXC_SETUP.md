@@ -25,8 +25,6 @@ Instead of storing your Artifactory token directly in Maven's `settings.xml`, th
 ### 1. Run the Setup Script
 
 ```bash
-cd ~/github/caci-tools
-chmod +x setup-maven-keepassxc.sh
 ./setup-maven-keepassxc.sh
 ```
 
@@ -190,6 +188,74 @@ When your Artifactory token expires (daily):
 2. The script automatically updates the KeePassXC entry
 3. Maven will use the new token on the next build
 4. No changes to `settings.xml` required
+
+### Using refresh-token.sh
+
+The `refresh-token.sh` script automates token retrieval and updates multiple storage locations.
+
+**On macOS:**
+The script updates:
+- KeePassXC entry (for Maven authentication)
+- macOS Keychain (for other tools)
+- `.artifactory_credentials` file (for specific projects)
+
+**On Linux:**
+The script includes macOS Keychain commands that must be removed for Linux compatibility.
+
+Edit `refresh-token.sh` and remove or comment out the `security` commands in the Artifactory section:
+
+```bash
+# Remove these lines for Linux:
+security delete-internet-password \
+  -a "${USERNAME}" \
+  -s "${ARTIFACTORY_HOST}" \
+  2>/dev/null || true
+
+security add-internet-password \
+  -a "${USERNAME}" \
+  -s "${ARTIFACTORY_HOST}" \
+  -w "${REFERENCE_TOKEN}" \
+  -r "htps"
+```
+
+**Linux Keychain Alternative:**
+
+Linux systems can use **Secret Service API** (GNOME Keyring, KWallet) for similar functionality:
+
+Using `secret-tool` (part of libsecret):
+
+```bash
+# Install secret-tool
+sudo apt install libsecret-tools  # Ubuntu/Debian
+sudo dnf install libsecret         # Fedora/RHEL
+
+# Store token
+echo -n "${REFERENCE_TOKEN}" | secret-tool store \
+  --label="Artifactory Token" \
+  service artifactory \
+  username "${USERNAME}"
+
+# Retrieve token later
+secret-tool lookup service artifactory username "${USERNAME}"
+```
+
+To modify `refresh-token.sh` for Linux, replace the macOS `security` commands with:
+
+```bash
+# Store for Artifactory (Linux)
+echo -n "${REFERENCE_TOKEN}" | secret-tool store \
+  --label="Artifactory Token" \
+  service artifactory \
+  username "${USERNAME}"
+
+if [ $? -eq 0 ]; then
+  echo "✓ Saved Artifactory token to system keyring"
+else
+  echo "⚠️  Failed to save token to keyring (continuing anyway)"
+fi
+```
+
+**Note:** The KeePassXC entry update works identically on both macOS and Linux - no changes needed for that portion of the script.
 
 ## Troubleshooting
 
