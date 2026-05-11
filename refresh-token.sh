@@ -127,17 +127,21 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
     "${KEEPASS_DB}" \
     "CDE Artifactory" 2>/dev/null
 
-  if [ $? -eq 0 ]; then
+  ADD_SUCCESS=$?
+  if [ $ADD_SUCCESS -eq 0 ]; then
     echo "✓ Saved Artifactory token to KeePassXC"
+  else
+    echo "⚠️  Failed to save token to KeePassXC (continuing anyway)"
+  fi
 
-    # Reopen and auto-unlock KeePassXC if it was running
-    if [ "$KEEPASSXC_RUNNING" = true ]; then
-      echo "🔓 Reopening and unlocking KeePassXC..."
-      open -a KeePassXC
-      sleep 2
+  # Reopen and auto-unlock KeePassXC if it was running (regardless of add success)
+  if [ "$KEEPASSXC_RUNNING" = true ]; then
+    echo "🔓 Reopening and unlocking KeePassXC..."
+    open -a KeePassXC
+    sleep 2
 
-      # Auto-unlock the database using AppleScript
-      osascript <<EOF 2>/dev/null
+    # Auto-unlock the database using AppleScript
+    osascript <<EOF 2>/dev/null
 tell application "System Events"
     tell process "KeePassXC"
         set frontmost to true
@@ -147,15 +151,12 @@ tell application "System Events"
 end tell
 EOF
 
-      if [ $? -eq 0 ]; then
-        echo "✓ KeePassXC unlocked automatically"
-      else
-        echo "⚠️  Could not auto-unlock KeePassXC - you may need to unlock it manually"
-        echo "   (Requires System Preferences > Security & Privacy > Accessibility permissions)"
-      fi
+    if [ $? -eq 0 ]; then
+      echo "✓ KeePassXC unlocked automatically"
+    else
+      echo "⚠️  Could not auto-unlock KeePassXC - you may need to unlock it manually"
+      echo "   (Requires System Preferences > Security & Privacy > Accessibility permissions)"
     fi
-  else
-    echo "⚠️  Failed to save token to KeePassXC (continuing anyway)"
   fi
 
   # Save Artifactory reference_token in the keychain for maven and other tools.
