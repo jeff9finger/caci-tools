@@ -190,7 +190,7 @@ The extension supports various search criteria:
 
 **By Username:**
 ```xml
-<password>{[type=keepassxc,where:username=jhaynes]https://artifactory.devopsbase.com}</password>
+<password>{[type=keepassxc,where:username=your-devopsbase-username]https://artifactory.devopsbase.com}</password>
 ```
 
 **By Custom Attribute:**

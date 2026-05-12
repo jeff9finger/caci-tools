@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Example Maven settings.xml configured for DevOpsBase Artifactory with KeePassXC authentication.
+
+  Instructions:
+  1. Copy this file to ~/.m2/settings.xml
+  2. Replace "your-devopsbase-username" with your actual DevOpsBase username
+  3. Ensure KeePassXC entry exists with URL: https://artifactory.devopsbase.com
+  4. Run setup-maven-keepassxc.sh to install the KeePassXC extension
+-->
+<settings xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.2.0 http://maven.apache.org/xsd/settings-1.2.0.xsd" xmlns="http://maven.apache.org/SETTINGS/1.2.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <servers>
+    <!-- Server IDs must match the repository or mirror IDs they authenticate to -->
+    <server>
+      <id>snapshots</id>
+      <username>your-devopsbase-username</username>
+      <password>{[type=keepassxc]https://artifactory.devopsbase.com}</password>
+    </server>
+    <server>
+      <id>internal</id>
+      <username>your-devopsbase-username</username>
+      <password>{[type=keepassxc]https://artifactory.devopsbase.com}</password>
+    </server>
+    <server>
+      <id>external-gfs</id>
+      <username>your-devopsbase-username</username>
+      <password>{[type=keepassxc]https://artifactory.devopsbase.com}</password>
+    </server>
+    <server>
+      <id>internal-2ndparty</id>
+      <username>your-devopsbase-username</username>
+      <password>{[type=keepassxc]https://artifactory.devopsbase.com}</password>
+    </server>
+    <server>
+      <id>mirror</id>
+      <username>your-devopsbase-username</username>
+      <password>{[type=keepassxc]https://artifactory.devopsbase.com}</password>
+    </server>
+  </servers>
+  <mirrors>
+    <!-- force all download requests, except for snapshots, to classic-reach virtual repo to prevent any calls to external maven repos -->
+    <mirror>
+      <id>mirror</id>
+      <name>int-unclass-distops-nosync-mvn-virtual</name>
+      <mirrorOf>*,!central,!snapshots,!external-gfs,!internal-2ndparty</mirrorOf>
+      <url>https://artifactory.devopsbase.com/artifactory/int-unclass-distops-nosync-mvn-virtual</url>
+    </mirror>
+  </mirrors>
+
+  <profiles>
+    <profile>
+      <id>devopsbase-distops</id>
+      <properties>
+        <!--
+        The distributionManagement urls in the ticomgeo-root poms are using nexusReleases and nexusSnapshot properties.
+        Overriding these values allow for minimal customization of project pom files when moving between environments.
+        -->
+        <nexusReleases>https://artifactory.devopsbase.com/artifactory/int-unclass-distops-nosync-mvn-local</nexusReleases>
+        <nexusSnapshots>https://artifactory.devopsbase.com/artifactory/int-unclass-distops-nosync-mvn-snapshot-local</nexusSnapshots>
+      </properties>
+      <repositories>
+        <repository>
+          <id>snapshots</id>
+          <name>internal-distops-snapshots</name>
+          <releases>
+            <enabled>false</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+          </snapshots>
+          <url>https://artifactory.devopsbase.com/artifactory/int-unclass-distops-nosync-mvn-snapshot-local</url>
+          <layout>default</layout>
+        </repository>
+        <repository>
+          <id>internal</id>
+          <name>internal-distops</name>
+          <url>https://artifactory.devopsbase.com/artifactory/int-unclass-distops-nosync-mvn-local</url>
+          <layout>default</layout>
+        </repository>
+        <repository>
+          <id>external-gfs</id>
+          <name>ext-distops-gfs</name>
+          <url>https://artifactory.devopsbase.com/artifactory/ext-unclass-distops-nosync-mvn-gfs-local</url>
+          <layout>default</layout>
+        </repository>
+        <repository>
+          <id>internal-2ndparty</id>
+          <name>int-distops-2ndparty</name>
+          <url>https://artifactory.devopsbase.com/artifactory/int-unclass-distops-nosync-mvn-2ndparty-local</url>
+          <layout>default</layout>
+        </repository>
+      </repositories>
+      <pluginRepositories>
+        <pluginRepository>
+          <snapshots>
+            <enabled>false</enabled>
+          </snapshots>
+          <id>internal</id>
+          <name>internal-distops-virtual</name>
+          <url>https://artifactory.devopsbase.com/artifactory/int-unclass-distops-nosync-mvn-virtual</url>
+        </pluginRepository>
+        <pluginRepository>
+          <snapshots />
+          <id>snapshots</id>
+          <name>internal-arle-navydss</name>
+          <url>https://artifactory.devopsbase.com/artifactory/int-all-arle-navydss-mvn-snapshot-virtual</url>
+        </pluginRepository>
+      </pluginRepositories>
+    </profile>
+  </profiles>
+  <activeProfiles>
+    <activeProfile>devopsbase-distops</activeProfile>
+  </activeProfiles>
+</settings>
