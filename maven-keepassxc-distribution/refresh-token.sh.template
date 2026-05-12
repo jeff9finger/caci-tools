@@ -1,0 +1,302 @@
+#!/bin/bash
+# refresh-token.sh - Reference Implementation
+#
+# This script retrieves authentication tokens from your organization's token service
+# and updates multiple storage locations for use by development tools.
+#
+# SETUP INSTRUCTIONS:
+# 1. Copy this file to your preferred location (e.g., ~/bin/refresh-token.sh)
+# 2. Make it executable: chmod +x ~/bin/refresh-token.sh
+# 3. Update the Configuration section below with your values
+# 4. For Linux: Remove macOS Keychain sections (see PLATFORM-SPECIFIC NOTES)
+
+set -e
+
+################################################################################
+# CONFIGURATION - UPDATE THESE VALUES FOR YOUR ENVIRONMENT
+################################################################################
+
+# Your username for authentication services
+USERNAME="your-username-here"
+
+# Artifactory configuration (if you use Artifactory)
+ARTIFACTORY_HOST="artifactory.example.com"
+ARTIFACTORY_URL="https://${ARTIFACTORY_HOST}"
+
+# Bitbucket/Git server configuration (if you use Bitbucket)
+BITBUCKET_HOST="bitbucket.example.com"
+
+# Optional: Path to project folder where .artifactory_credentials should be saved
+# Set to empty string if you don't need this feature
+DO_SERVER_FOLDER="${HOME}/path/to/your/project"
+
+# KeePassXC Configuration
+# Path to your KeePassXC database file
+KEEPASS_DB="${HOME}/.keepassxc/YourDatabase.kdbx"
+# Path to your KeePassXC key file (if you use one, otherwise set to empty string)
+KEEPASS_KEYFILE="${HOME}/.keepassxc/YourDatabase.keyx"
+# Name of the KeePassXC entry that stores your authentication password
+KEEPASS_ENTRY="YourPasswordEntry"
+
+################################################################################
+# PLATFORM-SPECIFIC NOTES
+################################################################################
+#
+# macOS:
+#   - Uses 'security' command to access macOS Keychain
+#   - No changes needed if you want to use Keychain
+#
+# Linux:
+#   - Remove or comment out all 'security' commands (search for "security delete-"
+#     and "security add-" and "security find-generic-password")
+#   - Optionally replace with 'secret-tool' commands for GNOME Keyring/KWallet:
+#       echo -n "$TOKEN" | secret-tool store --label="Label" service servicename username username
+#       secret-tool lookup service servicename username username
+#   - Install libsecret: sudo apt install libsecret-tools (Ubuntu/Debian)
+#
+################################################################################
+
+# Determine mode
+MODE="${1:-artifactory}"  # Default to 'artifactory' if no argument
+
+case "$MODE" in
+  -h|--help|help)
+    echo "Usage: $0 [artifactory|bitbucket|both]"
+    echo ""
+    echo "Modes:"
+    echo "  artifactory - Get Artifactory token and save to KeePassXC, Keychain, and file (default)"
+    echo "  bitbucket   - Get Bitbucket token and save to KeePassXC and Keychain"
+    echo "  both        - Get both tokens"
+    echo ""
+    echo "Prerequisites:"
+    echo "  - KeePassXC installed with database configured"
+    echo "  - KeePassXC database password stored in system keyring"
+    echo "  macOS: security add-generic-password -a 'KeyName' -s 'ServiceName' -w"
+    echo "  Linux: secret-tool store --label='Label' service servicename"
+    exit 0
+    ;;
+  artifactory|bitbucket|both)
+    # Valid mode
+    ;;
+  *)
+    echo "Usage: $0 [artifactory|bitbucket|both]"
+    exit 1
+    ;;
+esac
+
+################################################################################
+# Get KeePassXC database master password from system keyring
+################################################################################
+
+# macOS: Use security command
+KEEPASS_DB_PASSWORD=$(security find-generic-password -a "YourKeyName" -s "YourServiceName" -w 2>/dev/null)
+
+# Linux: Use secret-tool (comment out macOS line above and uncomment below)
+# KEEPASS_DB_PASSWORD=$(secret-tool lookup service yourservice username yourusername 2>/dev/null)
+
+if [ -z "$KEEPASS_DB_PASSWORD" ]; then
+  echo "❌ Failed to retrieve KeePass database password from system keyring"
+  echo "macOS: Run: security add-generic-password -a 'KeyName' -s 'ServiceName' -w"
+  echo "Linux: Run: secret-tool store --label='Label' service servicename username yourusername"
+  exit 1
+fi
+
+# Get password from KeePassXC (suppress password prompt on stderr)
+DEVOPS_BASE_PASSWORD=$(echo "$KEEPASS_DB_PASSWORD" | keepassxc-cli show \
+  --key-file "${KEEPASS_KEYFILE}" \
+  -s -a Password \
+  "${KEEPASS_DB}" \
+  "${KEEPASS_ENTRY}" 2>/dev/null)
+
+if [ -z "$DEVOPS_BASE_PASSWORD" ]; then
+  echo "❌ Failed to retrieve password from KeePassXC"
+  exit 1
+fi
+
+################################################################################
+# Artifactory Token Retrieval and Storage
+################################################################################
+if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
+  read -p "Enter SurePass/2FA code for Artifactory: " SUREPASS_CODE_ARTIFACTORY
+
+  if [ -z "$SUREPASS_CODE_ARTIFACTORY" ]; then
+    echo "❌ 2FA code cannot be empty"
+    exit 1
+  fi
+
+  FULL_DEVOPS_BASE_PASSWORD="${DEVOPS_BASE_PASSWORD}${SUREPASS_CODE_ARTIFACTORY}"
+
+  # Call your organization's token API
+  # UPDATE THIS URL to match your token service endpoint
+  ARTIFACTORY_RESPONSE=$(curl -s --max-time 30 -u "${USERNAME}:${FULL_DEVOPS_BASE_PASSWORD}" \
+    -XPOST "${ARTIFACTORY_URL}/access/api/v1/tokens" \
+    -d "scope=applied-permissions/user" \
+    -d "include_reference_token=true" \
+    -d "expires_in=86400")
+
+  CURL_EXIT=$?
+  if [ $CURL_EXIT -ne 0 ]; then
+    echo "❌ Failed to connect to Artifactory (curl exit code: $CURL_EXIT)"
+    [ $CURL_EXIT -eq 28 ] && echo "Connection timed out after 30 seconds"
+    exit 1
+  fi
+
+  # Remove any trailing '%' or whitespace that might interfere with JSON parsing
+  ARTIFACTORY_RESPONSE=$(echo "$ARTIFACTORY_RESPONSE" | tr -d '\000-\037' | sed 's/%$//')
+
+  # Extract reference_token from API response
+  # UPDATE THIS if your API returns tokens with a different field name
+  REFERENCE_TOKEN=$(echo "$ARTIFACTORY_RESPONSE" | jq -r '.reference_token // empty')
+
+  if [ -z "$REFERENCE_TOKEN" ]; then
+    echo "❌ Failed to get reference_token from Artifactory"
+    echo "Response: $ARTIFACTORY_RESPONSE"
+    exit 1
+  fi
+
+  # Save Artifactory reference_token in KeePassXC for Maven extension
+  # UPDATE "YourArtifactoryEntry" to match the entry name in your KeePassXC database
+  # This entry should have URL: https://artifactory.example.com
+  (echo "$KEEPASS_DB_PASSWORD"; echo "$REFERENCE_TOKEN") | keepassxc-cli edit \
+    --key-file "${KEEPASS_KEYFILE}" \
+    --username "${USERNAME}" \
+    --url "https://artifactory.example.com" \
+    --password-prompt \
+    "${KEEPASS_DB}" \
+    "YourArtifactoryEntry" >/dev/null 2>&1
+
+  if [ $? -eq 0 ]; then
+    echo "✓ Saved Artifactory token to KeePassXC"
+  else
+    echo "⚠️  Failed to save token to KeePassXC (continuing anyway)"
+  fi
+
+  ############################################################################
+  # PLATFORM-SPECIFIC: macOS Keychain Storage
+  # For Linux: Remove or comment out this entire section
+  ############################################################################
+
+  # Delete existing entry if it exists (ignore errors)
+  security delete-internet-password \
+    -a "${USERNAME}" \
+    -s "${ARTIFACTORY_HOST}" \
+    >/dev/null 2>&1 || true
+
+  # Store for Artifactory in macOS Keychain
+  security add-internet-password \
+    -a "${USERNAME}" \
+    -s "${ARTIFACTORY_HOST}" \
+    -w "${REFERENCE_TOKEN}" \
+    -r "htps" \
+    >/dev/null 2>&1
+
+  ADD_EXIT=$?
+  if [ $ADD_EXIT -ne 0 ]; then
+    echo "❌ Failed to add Artifactory token to keychain (exit code: $ADD_EXIT)"
+    exit 1
+  else
+    echo "✓ Saved Artifactory token to keychain"
+  fi
+
+  ############################################################################
+  # END PLATFORM-SPECIFIC SECTION
+  # For Linux: Replace above with secret-tool commands if desired:
+  #
+  # echo -n "${REFERENCE_TOKEN}" | secret-tool store \
+  #   --label="Artifactory Token" \
+  #   service artifactory \
+  #   username "${USERNAME}"
+  #
+  # if [ $? -eq 0 ]; then
+  #   echo "✓ Saved Artifactory token to system keyring"
+  # else
+  #   echo "⚠️  Failed to save token to keyring (continuing anyway)"
+  # fi
+  ############################################################################
+
+  # Save to .artifactory_credentials file (optional)
+  # This is useful if you have projects that read credentials from a file
+  if [ -n "$DO_SERVER_FOLDER" ] && [ -d "${DO_SERVER_FOLDER}" ]; then
+    cat > "${DO_SERVER_FOLDER}"/.artifactory_credentials <<EOF
+ARTIFACTORY_USERNAME=${USERNAME}
+ARTIFACTORY_KEY=${REFERENCE_TOKEN}
+EOF
+    chmod 600 "${DO_SERVER_FOLDER}"/.artifactory_credentials
+    echo "✓ Saved Artifactory credentials to ${DO_SERVER_FOLDER}/.artifactory_credentials"
+  elif [ -n "$DO_SERVER_FOLDER" ]; then
+    echo "⚠️  Directory not found: ${DO_SERVER_FOLDER}"
+  fi
+fi
+
+################################################################################
+# Bitbucket Token Retrieval and Storage
+################################################################################
+if [ "$MODE" = "bitbucket" ] || [ "$MODE" = "both" ]; then
+  read -p "Enter SurePass/2FA code for Bitbucket: " SUREPASS_CODE_BITBUCKET
+
+  if [ -z "$SUREPASS_CODE_BITBUCKET" ]; then
+    echo "❌ 2FA code cannot be empty"
+    exit 1
+  fi
+
+  FULL_DEVOPS_BASE_PASSWORD="${DEVOPS_BASE_PASSWORD}${SUREPASS_CODE_BITBUCKET}"
+
+  # Call your organization's Bitbucket API to create access token
+  # UPDATE THIS URL and payload to match your Bitbucket instance
+  RESPONSE=$(curl -s --max-time 30 -u "${USERNAME}:${FULL_DEVOPS_BASE_PASSWORD}" \
+    -X PUT "https://${BITBUCKET_HOST}/rest/access-tokens/1.0/users/${USERNAME}" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "name": "daily-git-token",
+      "expiryDays": 1,
+      "permissions": ["REPO_READ", "REPO_WRITE"]
+    }')
+
+  CURL_EXIT=$?
+  if [ $CURL_EXIT -ne 0 ]; then
+    echo "❌ Failed to connect to Bitbucket (curl exit code: $CURL_EXIT)"
+    [ $CURL_EXIT -eq 28 ] && echo "Connection timed out after 30 seconds"
+    exit 1
+  fi
+
+  # Extract access_token from Bitbucket API response
+  # UPDATE THIS if your API returns tokens with a different field name
+  ACCESS_TOKEN=$(echo "$RESPONSE" | jq -r '.token // empty')
+
+  if [ -z "$ACCESS_TOKEN" ]; then
+    echo "❌ Failed to get token from Bitbucket"
+    echo "Response: $RESPONSE"
+    exit 1
+  fi
+
+  ############################################################################
+  # PLATFORM-SPECIFIC: macOS Keychain Storage
+  # For Linux: Remove or comment out this section
+  ############################################################################
+
+  # Delete existing entry if it exists (ignore errors)
+  security delete-internet-password \
+    -a "${USERNAME}" \
+    -s "${BITBUCKET_HOST}" \
+    >/dev/null 2>&1 || true
+
+  # Store Bitbucket access_token in keychain so git commands can authenticate automatically
+  security add-internet-password \
+    -a "${USERNAME}" \
+    -s "${BITBUCKET_HOST}" \
+    -w "${ACCESS_TOKEN}" \
+    -r "htps" \
+    >/dev/null 2>&1
+
+  ADD_EXIT=$?
+  if [ $ADD_EXIT -ne 0 ]; then
+    echo "❌ Failed to add token to keychain (exit code: $ADD_EXIT)"
+    exit 1
+  fi
+  echo "✓ Saved Bitbucket token to keychain"
+
+  ############################################################################
+  # END PLATFORM-SPECIFIC SECTION
+  # For Linux: Replace above with secret-tool commands if desired
+  ############################################################################
+fi
