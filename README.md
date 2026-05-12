@@ -260,6 +260,8 @@ security find-internet-password -s "bitbucket.devopsbase.com" -a "your-username"
 
 Maven authentication setup that retrieves Artifactory credentials from KeePassXC at runtime, eliminating plaintext passwords in `settings.xml`.
 
+**Extension:** [keepassxc-security-maven-extension](https://github.com/causalnet/keepassxc-security-maven-extension) by CausalNet
+
 ### Quick Start
 
 1. **Run the setup script:**
@@ -325,11 +327,16 @@ mvn clean install
 
 ### Documentation
 
-See [maven-keepassxc/MAVEN_KEEPASSXC_SETUP.md](maven-keepassxc/MAVEN_KEEPASSXC_SETUP.md) for:
-- Detailed setup instructions
-- Troubleshooting guide
-- Configuration options
-- IntelliJ IDEA integration
+- **Setup Guide:** [maven-keepassxc/MAVEN_KEEPASSXC_SETUP.md](maven-keepassxc/MAVEN_KEEPASSXC_SETUP.md)
+  - Detailed setup instructions
+  - Troubleshooting guide
+  - Configuration options
+  - IntelliJ IDEA integration
+  
+- **Extension Documentation:** [GitHub - causalnet/keepassxc-security-maven-extension](https://github.com/causalnet/keepassxc-security-maven-extension)
+  - Full extension reference
+  - Advanced configuration
+  - Source code
 
 ---
 

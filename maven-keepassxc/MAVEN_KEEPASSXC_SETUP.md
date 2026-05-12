@@ -2,6 +2,8 @@
 
 This guide explains how to configure Maven to authenticate to Artifactory using passwords stored in KeePassXC, eliminating the need to store tokens in plaintext in `settings.xml`.
 
+**Uses:** [keepassxc-security-maven-extension](https://github.com/causalnet/keepassxc-security-maven-extension) by CausalNet
+
 ## Overview
 
 Instead of storing your Artifactory token directly in Maven's `settings.xml`, this setup allows Maven to fetch credentials from KeePassXC at runtime. Benefits include:
