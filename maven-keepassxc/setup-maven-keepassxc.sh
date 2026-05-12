@@ -56,50 +56,77 @@ fi
 
 echo ""
 echo "================================================"
-echo "Step 1: Download Maven KeePassXC Extension"
+echo "Step 1: Install Maven KeePassXC Extension"
 echo "================================================"
 
-EXTENSIONS_DIR="${HOME}/.m2/extensions"
-mkdir -p "$EXTENSIONS_DIR"
+# Extension Maven coordinates
+KEEPASSXC_GROUP="au.net.causal.maven.plugins"
+KEEPASSXC_ARTIFACT="keepassxc-security-maven-extension"
+KEEPASSXC_VERSION="1.0"
 
-KEEPASSXC_EXT_URL="https://repo1.maven.org/maven2/au/net/causal/maven/plugins/keepassxc-security-maven-extension/1.0/keepassxc-security-maven-extension-1.0.jar"
-COMMONS_LANG3_URL="https://repo1.maven.org/maven2/org/apache/commons/commons-lang3/3.14.0/commons-lang3-3.14.0.jar"
+echo "Installing KeePassXC Maven extension from Maven Central..."
+echo "(This downloads directly from Maven Central, bypassing any mirror configuration)"
+mvn dependency:get \
+  -DgroupId="$KEEPASSXC_GROUP" \
+  -DartifactId="$KEEPASSXC_ARTIFACT" \
+  -Dversion="$KEEPASSXC_VERSION" \
+  -DremoteRepositories=central::default::https://repo1.maven.org/maven2 \
+  -Dtransitive=true
 
-echo "Downloading KeePassXC Maven extension..."
-if command -v curl &> /dev/null; then
-  curl -L -o "$EXTENSIONS_DIR/keepassxc-extension.jar" "$KEEPASSXC_EXT_URL"
-  curl -L -o "$EXTENSIONS_DIR/commons-lang3.jar" "$COMMONS_LANG3_URL"
+if [ $? -eq 0 ]; then
+  echo "✓ Extension installed to local Maven repository"
 else
-  wget -O "$EXTENSIONS_DIR/keepassxc-extension.jar" "$KEEPASSXC_EXT_URL"
-  wget -O "$EXTENSIONS_DIR/commons-lang3.jar" "$COMMONS_LANG3_URL"
+  echo "❌ Failed to download extension"
+  echo "If you have a settings.xml with authentication requirements, you may need to"
+  echo "temporarily rename it while downloading the extension:"
+  echo "  mv ~/.m2/settings.xml ~/.m2/settings.xml.tmp"
+  echo "  (re-run this script)"
+  echo "  mv ~/.m2/settings.xml.tmp ~/.m2/settings.xml"
+  exit 1
 fi
-
-echo "✓ Extensions downloaded to $EXTENSIONS_DIR"
-ls -lh "$EXTENSIONS_DIR"
 
 echo ""
 echo "================================================"
-echo "Step 2: Configure Maven to Load Extension"
+echo "Step 2: Configure extensions.xml"
 echo "================================================"
 
-MAVENRC="${HOME}/.mavenrc"
+EXTENSIONS_XML="${HOME}/.m2/extensions.xml"
 
-# Backup existing .mavenrc if it exists
-if [ -f "$MAVENRC" ]; then
-  cp "$MAVENRC" "${MAVENRC}.backup-$(date +%Y%m%d-%H%M%S)"
-  echo "✓ Backed up existing .mavenrc"
+# Backup existing extensions.xml if it exists
+if [ -f "$EXTENSIONS_XML" ]; then
+  cp "$EXTENSIONS_XML" "${EXTENSIONS_XML}.backup-$(date +%Y%m%d-%H%M%S)"
+  echo "✓ Backed up existing extensions.xml"
 fi
 
-# Check if extension is already configured
-if grep -q "keepassxc-extension.jar" "$MAVENRC" 2>/dev/null; then
-  echo "⚠️  KeePassXC extension already configured in .mavenrc"
+# Check if KeePassXC extension is already configured
+if grep -q "keepassxc-security-maven-extension" "$EXTENSIONS_XML" 2>/dev/null; then
+  echo "⚠️  KeePassXC extension already configured in extensions.xml"
 else
-  cat >> "$MAVENRC" <<'EOF'
-
-# Load KeePassXC Maven extension to fetch passwords from KeePassXC
-MAVEN_OPTS="$MAVEN_OPTS -Dmaven.ext.class.path=${HOME}/.m2/extensions/keepassxc-extension.jar:${HOME}/.m2/extensions/commons-lang3.jar"
+  # Create or update extensions.xml
+  if [ ! -f "$EXTENSIONS_XML" ]; then
+    cat > "$EXTENSIONS_XML" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<extensions>
+  <extension>
+    <groupId>$KEEPASSXC_GROUP</groupId>
+    <artifactId>$KEEPASSXC_ARTIFACT</artifactId>
+    <version>$KEEPASSXC_VERSION</version>
+  </extension>
+</extensions>
 EOF
-  echo "✓ Updated .mavenrc to load KeePassXC extension"
+    echo "✓ Created $EXTENSIONS_XML"
+  else
+    # Append to existing extensions.xml
+    # This is a simple approach - manual merge may be needed for complex files
+    echo "⚠️  $EXTENSIONS_XML exists. Please manually add this extension:"
+    echo ""
+    echo "  <extension>"
+    echo "    <groupId>$KEEPASSXC_GROUP</groupId>"
+    echo "    <artifactId>$KEEPASSXC_ARTIFACT</artifactId>"
+    echo "    <version>$KEEPASSXC_VERSION</version>"
+    echo "  </extension>"
+    echo ""
+  fi
 fi
 
 echo ""
@@ -143,6 +170,10 @@ echo "================================================"
 echo "✅ Automated Setup Complete!"
 echo "================================================"
 echo ""
+echo "IMPORTANT: This setup uses ~/.m2/extensions.xml which works"
+echo "           with both command-line Maven AND IntelliJ IDEA."
+echo "           No .mavenrc file is required!"
+echo ""
 echo "NEXT STEPS (Manual Configuration Required):"
 echo ""
 echo "1. CREATE KEEPASSXC ENTRY:"
@@ -173,10 +204,16 @@ echo "   - First time: KeePassXC will ask you to authorize the connection"
 echo "   - Give it a name like 'maven-access'"
 echo "   - After that, authentication will be automatic"
 echo ""
-echo "4. TROUBLESHOOTING:"
+echo "4. INTELLIJ IDEA USERS:"
+echo "   - Restart IntelliJ IDEA for it to pick up the extensions.xml"
+echo "   - IntelliJ will use the same KeePassXC integration automatically"
+echo "   - Make sure KeePassXC is running when using Maven in IntelliJ"
+echo ""
+echo "5. TROUBLESHOOTING:"
 echo "   - If you see '401 Unauthorized': check server ID matches mirror/repository ID"
 echo "   - If you see 'No logins found': verify KeePassXC entry URL matches settings.xml"
 echo "   - If KeePassXC keeps asking to pair: check ~/.m2/settings-security.xml exists"
+echo "   - IntelliJ not working: verify extensions.xml exists and restart IntelliJ"
 echo ""
 echo "For more details, see: MAVEN_KEEPASSXC_SETUP.md"
 echo ""

@@ -29,9 +29,18 @@ Instead of storing your Artifactory token directly in Maven's `settings.xml`, th
 ```
 
 This script will:
-- Download the Maven KeePassXC extension and dependencies
-- Update your `~/.mavenrc` to load the extension
+- Install the Maven KeePassXC extension and dependencies to local Maven repository
+- Create/update `~/.m2/extensions.xml` to load the extension
 - Create/update `~/.m2/settings-security.xml`
+- Works with both command-line Maven and IntelliJ IDEA (no `.mavenrc` needed!)
+
+**Note:** If you have an existing `~/.m2/settings.xml` with authentication requirements, you may need to temporarily rename it during installation:
+
+```bash
+mv ~/.m2/settings.xml ~/.m2/settings.xml.tmp
+./setup-maven-keepassxc.sh
+mv ~/.m2/settings.xml.tmp ~/.m2/settings.xml
+```
 
 ### 2. Create KeePassXC Entry
 
@@ -98,7 +107,8 @@ You should see dependencies downloading without authentication errors.
 │ https://... │
 └──────┬──────┘
        │
-       ├─ Maven loads extension from ~/.mavenrc
+       ├─ Maven loads extension from ~/.m2/extensions.xml
+       │  (works in both CLI and IntelliJ IDEA)
        │
        ▼
 ┌──────────────────┐        ┌─────────────┐
@@ -121,11 +131,19 @@ You should see dependencies downloading without authentication errors.
 
 ## Configuration Files
 
-### ~/.mavenrc
-```bash
-# Load KeePassXC Maven extension
-MAVEN_OPTS="$MAVEN_OPTS -Dmaven.ext.class.path=${HOME}/.m2/extensions/keepassxc-extension.jar:${HOME}/.m2/extensions/commons-lang3.jar"
+### ~/.m2/extensions.xml
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<extensions>
+  <extension>
+    <groupId>au.net.causal.maven.plugins</groupId>
+    <artifactId>keepassxc-security-maven-extension</artifactId>
+    <version>1.0</version>
+  </extension>
+</extensions>
 ```
+
+**Note:** This file is read by both command-line Maven and IntelliJ IDEA, making the extension work everywhere. No `.mavenrc` needed!
 
 ### ~/.m2/settings-security.xml
 ```xml
@@ -293,10 +311,10 @@ fi
 **Problem:** Maven doesn't recognize the KeePassXC syntax
 
 **Solutions:**
-1. Verify `~/.mavenrc` contains the extension configuration
-2. Check that JARs exist in `~/.m2/extensions/`
-3. Try running `source ~/.mavenrc` then test Maven
-4. Restart your terminal/shell
+1. Verify `~/.m2/extensions.xml` exists and contains the KeePassXC extension
+2. Check that extension JARs exist in `~/.m2/repository/au/net/causal/maven/plugins/keepassxc-security-maven-extension/1.0/`
+3. For IntelliJ: Restart IntelliJ IDEA after creating extensions.xml
+4. Restart your terminal/shell and try `mvn dependency:resolve`
 
 ### Database Unlock Timeout
 
@@ -370,13 +388,27 @@ You can use the same KeePassXC entry for multiple servers:
 </servers>
 ```
 
+## IntelliJ IDEA Integration
+
+The configuration using `~/.m2/extensions.xml` works seamlessly with IntelliJ IDEA:
+
+1. **After running the setup script**, restart IntelliJ IDEA
+2. IntelliJ will automatically load extensions from `extensions.xml`
+3. Maven operations in IntelliJ (import, dependencies, builds) will use KeePassXC
+4. **Important:** KeePassXC must be running and unlocked when using Maven in IntelliJ
+
+**Troubleshooting IntelliJ:**
+- If IntelliJ shows authentication errors: File → Invalidate Caches / Restart
+- Verify in Settings → Build → Build Tools → Maven that Maven home is correctly set
+- Check IntelliJ's Maven console output for extension loading messages
+
 ## Uninstalling
 
 To remove the KeePassXC Maven integration:
 
-1. Remove extension configuration from `~/.mavenrc`:
+1. Remove or rename `~/.m2/extensions.xml`:
    ```bash
-   # Remove or comment out the MAVEN_OPTS line
+   mv ~/.m2/extensions.xml ~/.m2/extensions.xml.disabled
    ```
 
 2. Restore plaintext passwords in `~/.m2/settings.xml`:
@@ -384,11 +416,12 @@ To remove the KeePassXC Maven integration:
    <password>your-token-here</password>
    ```
 
-3. (Optional) Remove extension files:
+3. (Optional) Remove pairing credentials:
    ```bash
-   rm -rf ~/.m2/extensions
    rm ~/.m2/keepassxc-security-maven-extension-credentials
    ```
+
+4. Restart IntelliJ IDEA if using it
 
 ## Security Considerations
 
