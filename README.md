@@ -2,6 +2,10 @@
 
 Collection of automation scripts for CACI DevOpsBase infrastructure.
 
+**📖 Documentation:**
+- [macOS Troubleshooting Guide](MACOS_TROUBLESHOOTING.md) - Common macOS configuration issues and solutions
+- [Maven KeePassXC Setup](maven-keepassxc/MAVEN_KEEPASSXC_SETUP.md) - Maven authentication with KeePassXC
+
 ## iterm-keepass-helper.sh
 
 Wrapper script for `keepassxc-cli` that:
@@ -235,3 +239,113 @@ security find-internet-password -s "bitbucket.devopsbase.com" -a "your-username"
 - Bitbucket tokens expire after 24 hours - run daily
 - Artifactory reference_token is extracted but not yet stored (TODO: determine storage location)
 - The script uses `set -e` - any command failure will abort execution
+
+---
+
+## Configuring Microsoft Outlook as Default Mail Handler
+
+### The Problem
+
+On macOS, setting Microsoft Outlook as the default mail application in System Settings (Desktop & Dock → Default mail reader) does not always make mailto: links open in Outlook. The links may continue to open in Apple Mail instead.
+
+**Why this happens:**
+- macOS uses the LaunchServices framework to manage URL protocol handlers (mailto:, http:, etc.)
+- System Settings may update a general preference but not the specific `mailto:` URL scheme handler
+- The LaunchServices database can cache old handler registrations
+- macOS defaults to Mail.app when no explicit handler is set
+
+### Solution for Unmanaged Macs
+
+If your Mac is **not managed by enterprise MDM/Configuration Profiles**, you can set the mailto: handler manually:
+
+**Method 1: Using defaults command (Recommended)**
+
+```bash
+# Set Outlook as mailto: handler
+defaults write ~/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers -array-add '{LSHandlerURLScheme=mailto;LSHandlerRoleAll=com.microsoft.Outlook;}'
+
+# Restart to apply changes
+killall Finder && killall Dock
+
+# Test it
+open "mailto:test@example.com"
+```
+
+**Method 2: Using duti tool**
+
+```bash
+# Install duti
+brew install duti
+
+# Set Outlook as mailto: handler
+duti -s com.microsoft.Outlook mailto all
+
+# Test it
+open "mailto:test@example.com"
+```
+
+**Note:** The `duti` method may fail with error -50 on some macOS versions. If that happens, use Method 1 instead.
+
+**Verify it worked:**
+```bash
+defaults read ~/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers | grep -A 2 mailto
+```
+
+Should show:
+```
+LSHandlerRoleAll = "com.microsoft.Outlook";
+LSHandlerURLScheme = mailto;
+```
+
+### Limitation: Managed Macs (Enterprise/MDM)
+
+**If your Mac is managed by CACI IT or enterprise MDM, you cannot override the mail handler.**
+
+Configuration Profiles have the highest precedence and override all user preferences. If you attempt to set Outlook as the mailto: handler and get an error message about "profile" restrictions, this means:
+
+1. **IT has deployed a Configuration Profile** that enforces Apple Mail as the mailto: handler
+2. **User-level changes are blocked** - the profile overrides any `defaults write` or `duti` commands
+3. **No workaround exists** at the user level
+
+**What to do:**
+
+Contact CACI IT/Help Desk and request they modify the Configuration Profile to:
+- Allow Microsoft Outlook as the mailto: handler
+- Remove the mail handler restriction from the profile
+- Whitelist Outlook (bundle ID: `com.microsoft.Outlook`) for the `mailto:` URL scheme
+
+Provide them this technical information:
+- **Application:** Microsoft Outlook
+- **Bundle ID:** `com.microsoft.Outlook`
+- **URL Scheme:** `mailto:`
+- **Reason:** Need Outlook for Exchange/Microsoft 365 email integration
+
+**Check if your Mac is managed:**
+```bash
+# Check for user-level profiles
+profiles list
+
+# Check for system-level profiles (requires admin)
+sudo profiles list
+```
+
+If you see configuration profiles listed, especially ones mentioning "LaunchServices" or "mail", your Mac is managed and IT must make the change.
+
+**Workaround for managed Macs:**
+- Manually copy email addresses from mailto: links
+- Paste into Outlook's "To:" field
+- Or open Outlook first, then use its compose window
+
+### Reverting Changes
+
+If you set the handler manually and want to revert to system defaults:
+
+```bash
+# Remove custom handler
+defaults delete ~/Library/Preferences/com.apple.LaunchServices/com.apple.launchservices.secure LSHandlers
+
+# Restart to apply
+killall Finder && killall Dock
+```
+
+This removes all custom URL scheme handlers and reverts to macOS defaults (which will follow any Configuration Profile settings if present).
