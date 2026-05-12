@@ -112,11 +112,10 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
     --url "https://artifactory.devopsbase.com" \
     --password-prompt \
     "${KEEPASS_DB}" \
-    "CDE Artifactory" 2>/dev/null
+    "CDE Artifactory" >/dev/null 2>&1
 
   if [ $? -eq 0 ]; then
     echo "✓ Saved Artifactory token to KeePassXC"
-    echo "   (KeePassXC GUI will auto-reload the changes if open)"
   else
     echo "⚠️  Failed to save token to KeePassXC (continuing anyway)"
   fi
@@ -127,14 +126,15 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
   security delete-internet-password \
     -a "${USERNAME}" \
     -s "${ARTIFACTORY_HOST}" \
-    2>/dev/null || true
+    >/dev/null 2>&1 || true
 
   # Store for Artifactory
   security add-internet-password \
     -a "${USERNAME}" \
     -s "${ARTIFACTORY_HOST}" \
     -w "${REFERENCE_TOKEN}" \
-    -r "htps"  # htps is the 4-character protocol code for HTTPS
+    -r "htps" \
+    >/dev/null 2>&1
 
   ADD_EXIT=$?
   if [ $ADD_EXIT -ne 0 ]; then
