@@ -104,7 +104,10 @@ Automates daily token refresh for Artifactory and Bitbucket access. Retrieves to
 ### What It Does
 
 1. **Retrieves DevOpsBase password** from KeePassXC (secured with keyfile)
-2. **Gets Artifactory token** (reference_token for future use - storage TBD)
+2. **Gets Artifactory token** (reference_token) and automatically:
+   - Updates the KeePassXC entry "CDE Artifactory" with the new token
+   - Stores in macOS Keychain for Maven and other tools
+   - Saves to `.artifactory_credentials` file in the current directory
 3. **Gets Bitbucket HTTP access token** (valid for 24 hours)
 4. **Stores Bitbucket token** in macOS Keychain for automatic Git authentication
 
@@ -129,6 +132,10 @@ The script expects the following setup:
    - Entry name: `DevOpsBase`
    - This entry must contain your DevOpsBase password in the "Password" field
    - *(Change `KEEPASS_ENTRY` variable in script if your entry has a different name)*
+   
+   - Entry name: `CDE Artifactory` (will be created/updated automatically)
+   - Used for Maven KeePassXC authentication (see maven-keepassxc section)
+   - The script automatically updates this entry with new Artifactory tokens
 
 3. **macOS Keychain Entry:**
    - Account: `CACI-SecureResources`
@@ -197,6 +204,8 @@ The script has three modes of operation:
 3. **Artifactory mode:**
    - Combines password with SurePass code → requests Artifactory token
    - Extracts `reference_token` from response
+   - **Automatically updates KeePassXC entry** "CDE Artifactory" with the new token (for Maven authentication)
+   - Saves to macOS Keychain (for Maven and other tools)
    - Saves to `.artifactory_credentials` in current directory (format: `ARTIFACTORY_USERNAME=...` and `ARTIFACTORY_KEY=...`)
 4. **Bitbucket mode:**
    - Combines password with SurePass code → requests Bitbucket access token (24-hour expiry)
@@ -236,9 +245,91 @@ security find-internet-password -s "bitbucket.devopsbase.com" -a "your-username"
 
 ### Notes
 
-- Bitbucket tokens expire after 24 hours - run daily
-- Artifactory reference_token is extracted but not yet stored (TODO: determine storage location)
+- **Bitbucket tokens** expire after 24 hours - run daily
+- **Artifactory tokens** are automatically stored in three locations:
+  1. KeePassXC entry "CDE Artifactory" (for Maven KeePassXC extension)
+  2. macOS Keychain (for Maven and other tools)
+  3. `.artifactory_credentials` file in current directory (for scripts)
+- **KeePassXC auto-reload**: The script uses `keepassxc-cli edit` to update tokens. KeePassXC automatically detects database changes and reloads them (no need to close/reopen the application)
 - The script uses `set -e` - any command failure will abort execution
+- **Integration with Maven**: After running refresh-token.sh, Maven can authenticate to Artifactory using the KeePassXC extension (see maven-keepassxc section below)
+
+---
+
+## maven-keepassxc/
+
+Maven authentication setup that retrieves Artifactory credentials from KeePassXC at runtime, eliminating plaintext passwords in `settings.xml`.
+
+### Quick Start
+
+1. **Run the setup script:**
+   ```bash
+   cd maven-keepassxc
+   ./setup-maven-keepassxc.sh
+   ```
+
+2. **Create KeePassXC entry** (or use refresh-token.sh to create it automatically):
+   - Title: `CDE Artifactory`
+   - Username: Your DevOpsBase username
+   - Password: Your Artifactory reference token
+   - URL: `https://artifactory.devopsbase.com`
+
+3. **Update `~/.m2/settings.xml`** with special password syntax:
+   ```xml
+   <server>
+     <id>int-unclass-distops-nosync-mvn-virtual</id>
+     <username>your-devopsbase-username</username>
+     <password>{[type=keepassxc]https://artifactory.devopsbase.com}</password>
+   </server>
+   ```
+
+4. **Restart IntelliJ IDEA** (if using IntelliJ)
+
+### What It Does
+
+- Installs Maven KeePassXC extension to `~/.m2/repository/`
+- Creates `~/.m2/extensions.xml` to load the extension
+- Works with both command-line Maven **and IntelliJ IDEA** (no `.mavenrc` needed)
+- Maven fetches credentials from KeePassXC when building projects
+
+### Benefits
+
+- **No plaintext tokens** in settings.xml
+- **Automatic token rotation** - update in KeePassXC (via refresh-token.sh) and Maven picks it up
+- **Works in IntelliJ** - unlike `.mavenrc` based solutions
+- **One-time pairing** - KeePassXC prompts once to authorize Maven, then remembers
+
+### Integration with refresh-token.sh
+
+The `refresh-token.sh` script automatically:
+1. Retrieves new Artifactory token daily
+2. Updates the "CDE Artifactory" entry in KeePassXC
+3. KeePassXC auto-reloads the database
+4. Maven uses the fresh token on next build
+
+**Complete workflow:**
+```bash
+# Run daily (or set up cron job)
+~/github/caci-tools/refresh-token.sh artifactory
+
+# Maven automatically uses the updated token
+cd your-maven-project
+mvn clean install
+```
+
+### Requirements
+
+- Maven 3.x
+- KeePassXC installed and running
+- Artifactory token stored in KeePassXC (refresh-token.sh does this automatically)
+
+### Documentation
+
+See [maven-keepassxc/MAVEN_KEEPASSXC_SETUP.md](maven-keepassxc/MAVEN_KEEPASSXC_SETUP.md) for:
+- Detailed setup instructions
+- Troubleshooting guide
+- Configuration options
+- IntelliJ IDEA integration
 
 ---
 
