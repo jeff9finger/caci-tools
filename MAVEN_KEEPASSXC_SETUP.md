@@ -150,7 +150,7 @@ MAVEN_OPTS="$MAVEN_OPTS -Dmaven.ext.class.path=${HOME}/.m2/extensions/keepassxc-
 <servers>
   <server>
     <id>int-unclass-distops-nosync-mvn-virtual</id>
-    <username>jhaynes</username>
+    <username>your-devopsbase-username</username>
     <password>{[type=keepassxc]https://artifactory.devopsbase.com}</password>
   </server>
 </servers>
@@ -354,17 +354,17 @@ You can use the same KeePassXC entry for multiple servers:
 <servers>
   <server>
     <id>central</id>
-    <username>jhaynes</username>
+    <username>your-devopsbase-username</username>
     <password>{[type=keepassxc]https://artifactory.devopsbase.com}</password>
   </server>
   <server>
     <id>snapshots</id>
-    <username>jhaynes</username>
+    <username>your-devopsbase-username</username>
     <password>{[type=keepassxc]https://artifactory.devopsbase.com}</password>
   </server>
   <server>
     <id>int-unclass-distops-nosync-mvn-virtual</id>
-    <username>jhaynes</username>
+    <username>your-devopsbase-username</username>
     <password>{[type=keepassxc]https://artifactory.devopsbase.com}</password>
   </server>
 </servers>
