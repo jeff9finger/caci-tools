@@ -416,7 +416,11 @@ Provide them this technical information:
 - **Application:** Microsoft Outlook
 - **Bundle ID:** `com.microsoft.Outlook`
 - **URL Scheme:** `mailto:`
-- **Reason:** Need Outlook for Exchange/Microsoft 365 email integration
+- **Current Handler (enforced):** `com.apple.mail`
+- **Desired Handler:** `com.microsoft.Outlook`
+- **Reason:** Company policy requires Outlook; Apple Mail not configured per policy
+
+**Example:** See MACOS_TROUBLESHOOTING.md for a complete IT ticket template (based on incident IMS0388231)
 
 **Check if your Mac is managed:**
 ```bash

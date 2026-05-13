@@ -64,7 +64,11 @@ If profiles are listed, especially ones from CACI IT, your Mac is managed.
    - Application: Microsoft Outlook
    - Bundle ID: `com.microsoft.Outlook`
    - URL Scheme: `mailto:`
-   - Reason: Need Outlook for Exchange/Microsoft 365 integration
+   - Current Handler (enforced): `com.apple.mail`
+   - Desired Handler: `com.microsoft.Outlook`
+   - Reason: Company policy requires Outlook; Apple Mail not configured per policy
+
+**Example IT ticket:** See incident IMS0388231 for a template request that successfully addresses this issue.
 
 **Workaround:**
 - Manually copy email addresses from links
