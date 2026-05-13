@@ -5,6 +5,7 @@ Collection of automation scripts for CACI DevOpsBase infrastructure.
 **📖 Documentation:**
 - [macOS Troubleshooting Guide](MACOS_TROUBLESHOOTING.md) - Common macOS configuration issues and solutions
 - [Maven KeePassXC Setup](maven-keepassxc/MAVEN_KEEPASSXC_SETUP.md) - Maven authentication with KeePassXC
+- [IT Ticket Tracking](IT_TICKETS.md) - Status of submitted IT configuration requests
 
 ## iterm-keepass-helper.sh
 
