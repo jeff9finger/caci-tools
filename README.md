@@ -3,6 +3,8 @@
 Collection of automation scripts for CACI DevOpsBase infrastructure.
 
 **📖 Documentation:**
+- [Claude Code Setup](CLAUDE_CODE_SETUP.md) - Claude Code with LiteLLM proxy configuration
+- [IntelliJ AI Setup](INTELLIJ_AI_SETUP.md) - DevoxxGenie and claude-agent-acp setup for IntelliJ IDEA
 - [macOS Troubleshooting Guide](MACOS_TROUBLESHOOTING.md) - Common macOS configuration issues and solutions
 - [Maven KeePassXC Setup](maven-keepassxc/MAVEN_KEEPASSXC_SETUP.md) - Maven authentication with KeePassXC
 - [IT Ticket Tracking](IT_TICKETS.md) - Status of submitted IT configuration requests
