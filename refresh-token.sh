@@ -23,9 +23,11 @@ case "$MODE" in
     echo "Usage: $0 [artifactory|bitbucket|both]"
     echo ""
     echo "Modes:"
-    echo "  artifactory - Only get Artifactory token and save to .artifactory_credentials and keychain (default)"
-    echo "  bitbucket   - Only get Bitbucket token and save to keychain"
-    echo "  both        - Get both tokens"
+    echo "  artifactory - Get Artifactory token for package repositories (Maven, Docker, npm, rpm, etc.)"
+    echo "                Saves to keychain and .artifactory_credentials file (default)"
+    echo "  bitbucket   - Get Bitbucket token for Git repositories"
+    echo "                Saves to keychain"
+    echo "  both        - Get both tokens (requires 2 SurePass codes)"
     echo ""
 #    echo "Prerequisites:"
 #    echo "  - KeePassXC database password stored in macOS Keychain"
@@ -37,9 +39,9 @@ case "$MODE" in
     ;;
   *)
     echo "Usage: $0 [artifactory|bitbucket|both]"
-    echo "  artifactory - Only get Artifactory token and save to .artifactory_credentials and keychain (default)"
-    echo "  bitbucket   - Only get Bitbucket token and save to keychain"
-    echo "  both        - Get both tokens"
+    echo "  artifactory - Get Artifactory token for package repositories (Maven, Docker, npm, rpm, etc.)"
+    echo "  bitbucket   - Get Bitbucket token for Git repositories"
+    echo "  both        - Get both tokens (requires 2 SurePass codes)"
     exit 1
     ;;
 esac
@@ -136,12 +138,33 @@ if [ "$MODE" = "artifactory" ] || [ "$MODE" = "both" ]; then
     -r "htps" \
     >/dev/null 2>&1
 
-  ADD_EXIT=$?
-  if [ $ADD_EXIT -ne 0 ]; then
-    echo "❌ Failed to add Artifactory token to keychain (exit code: $ADD_EXIT)"
-    exit 1
-  else
+  if [ $? -eq 0 ]; then
     echo "✓ Saved Artifactory token to keychain"
+  else
+    echo "⚠️  Failed to save Artifactory token to keychain (continuing anyway)"
+  fi
+
+  # Save Docker registry token (uses same Artifactory token)
+  DOCKER_REGISTRY_HOST="distops-snapshot-local-registry.devopsbase.com"
+
+  # Delete existing Docker registry entry if it exists (ignore errors)
+  security delete-internet-password \
+    -a "${USERNAME}" \
+    -s "${DOCKER_REGISTRY_HOST}" \
+    >/dev/null 2>&1 || true
+
+  # Store for Docker registry
+  security add-internet-password \
+    -a "${USERNAME}" \
+    -s "${DOCKER_REGISTRY_HOST}" \
+    -w "${REFERENCE_TOKEN}" \
+    -r "htps" \
+    >/dev/null 2>&1
+
+  if [ $? -eq 0 ]; then
+    echo "✓ Saved Docker registry token to keychain"
+  else
+    echo "⚠️  Failed to save Docker registry token to keychain (continuing anyway)"
   fi
 
   # Save to .artifactory_credentials in DO server folder

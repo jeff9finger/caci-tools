@@ -64,9 +64,11 @@ case "$MODE" in
     echo "Usage: $0 [artifactory|bitbucket|both]"
     echo ""
     echo "Modes:"
-    echo "  artifactory - Get Artifactory token and save to KeePassXC, Keychain, and file (default)"
-    echo "  bitbucket   - Get Bitbucket token and save to KeePassXC and Keychain"
-    echo "  both        - Get both tokens"
+    echo "  artifactory - Get Artifactory token for package repositories (Maven, Docker, npm, rpm, etc.)"
+    echo "                Saves to KeePassXC, Keychain, and .artifactory_credentials file (default)"
+    echo "  bitbucket   - Get Bitbucket token for Git repositories"
+    echo "                Saves to KeePassXC and Keychain"
+    echo "  both        - Get both tokens (requires 2 SurePass/MFA codes)"
     echo ""
     echo "Prerequisites:"
     echo "  - KeePassXC installed with database configured"
@@ -80,6 +82,9 @@ case "$MODE" in
     ;;
   *)
     echo "Usage: $0 [artifactory|bitbucket|both]"
+    echo "  artifactory - Get Artifactory token for package repositories (Maven, Docker, npm, rpm, etc.)"
+    echo "  bitbucket   - Get Bitbucket token for Git repositories"
+    echo "  both        - Get both tokens (requires 2 SurePass/MFA codes)"
     exit 1
     ;;
 esac

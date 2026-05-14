@@ -1,6 +1,19 @@
-# IntelliJ AI Assistant Setup (DevoxxGenie + claude-agent-acp)
+# IntelliJ IDEA Setup Guide
 
-This guide explains how to set up AI assistants in IntelliJ IDEA using the same LiteLLM proxy configuration as Claude Code in the terminal.
+Complete setup guide for IntelliJ IDEA with AI assistance and productivity tools for CACI development environment.
+
+## Table of Contents
+
+- [AI Assistant Setup (DevoxxGenie)](#ai-assistant-setup-devoxxgenie)
+- [Productivity Tools](#productivity-tools)
+  - [Jira Integration](#jira-integration)
+- [References](#references)
+
+---
+
+# AI Assistant Setup (DevoxxGenie)
+
+Setup AI code assistant in IntelliJ IDEA using the same LiteLLM proxy configuration as Claude Code in the terminal.
 
 ## Overview
 
@@ -61,7 +74,7 @@ echo $ANTHROPIC_BASE_URL
 # Output: https://litellm.csde.caci.com
 
 echo $ANTHROPIC_AUTH_TOKEN
-# Output: sk-7DSAcjN_fAC9Guw49zQzhw
+# Output: <API_KEY>
 
 echo $ANTHROPIC_CUSTOM_HEADERS
 # Output: x-litellm-customer-id: <your.email@caci.com>
@@ -71,21 +84,6 @@ If not set, source the configuration:
 ```bash
 source ~/.zprofile_ai
 ```
-
-### Testing claude-agent-acp
-
-The tool expects JSON-RPC 2.0 communication over stdin/stdout, so direct CLI testing is limited:
-
-```bash
-# Verify it starts without errors (will wait for JSON-RPC input)
-claude-agent-acp
-# Press Ctrl+C to exit
-
-# Check if it can find the configuration
-echo $ANTHROPIC_BASE_URL && claude-agent-acp --help
-```
-
-**Full testing requires an ACP client (like DevoxxGenie).**
 
 ## Part 2: Install DevoxxGenie Plugin
 
@@ -117,11 +115,7 @@ echo $ANTHROPIC_BASE_URL && claude-agent-acp --help
 
 ## Part 3: Configure DevoxxGenie with claude-agent-acp
 
-### Approach A: ACP Runner Configuration (Recommended)
-
-This approach uses claude-agent-acp as a bridge, providing full Claude Agent SDK features.
-
-#### Step 1: Launch IntelliJ from Terminal
+### Step 1: Launch IntelliJ from Terminal
 
 **Important:** IntelliJ must inherit environment variables from the shell.
 
@@ -135,7 +129,7 @@ open -a "IntelliJ IDEA"
 
 **Alternative:** Add environment variables to IntelliJ's launch configuration (see Troubleshooting section)
 
-#### Step 2: Configure ACP Runner
+### Step 2: Configure ACP Runner
 
 1. Open IntelliJ IDEA
 2. Go to Settings (⌘,) → Tools → DevoxxGenie
@@ -159,47 +153,12 @@ open -a "IntelliJ IDEA"
    - Should show "Connection successful" or similar
 7. Click OK to save
 
-#### Step 3: Use Claude via ACP
+### Step 3: Use Claude via ACP
 
 1. Open the DevoxxGenie panel (usually on right side of IntelliJ)
 2. In the model/provider dropdown, select "Claude (ACP)"
 3. Type a query in the chat interface
 4. Verify responses come from claude-agent-acp (check for streaming responses)
-
-### Approach B: Direct Anthropic Configuration (Alternative)
-
-This approach connects DevoxxGenie directly to the LiteLLM proxy without using claude-agent-acp.
-
-#### Configuration
-
-1. Open IntelliJ IDEA
-2. Go to Settings (⌘,) → Tools → DevoxxGenie
-3. In the main configuration:
-   - **LLM Provider:** Select "Anthropic" from dropdown
-   - **API Key:** `sk-7DSAcjN_fAC9Guw49zQzhw`
-   - **Custom Endpoint URL:** `https://litellm.csde.caci.com`
-   - **Custom Headers:**
-     - Key: `x-litellm-customer-id`
-     - Value: `<your.email@caci.com>`
-   - **Model:** `anthropic.claude-sonnet-4-5-20250929-v1:0`
-4. Click "Test" or "Validate" to verify connection
-5. Click OK to save
-
-#### Usage
-
-1. Open DevoxxGenie panel
-2. Select "Anthropic" from provider dropdown
-3. Start chatting
-
-**Pros:**
-- Simpler setup (no claude-agent-acp dependency)
-- Direct connection to LiteLLM
-- GUI configuration
-
-**Cons:**
-- Manual configuration per IntelliJ installation
-- No Agent SDK features (agent mode, parallel sub-agents)
-- No automatic sync with terminal environment
 
 ## Features and Usage
 
@@ -212,7 +171,7 @@ This approach connects DevoxxGenie directly to the LiteLLM proxy without using c
 
 ### Agent Mode
 
-**Requirements:** Using ACP runner configuration (Approach A)
+**Requirements:** Using ACP runner configuration
 
 1. Enable in DevoxxGenie settings
 2. Agent can autonomously explore codebase
@@ -244,19 +203,6 @@ Add source code to prompts:
 1. Use Project Scanner in DevoxxGenie settings
 2. Select directories/files to include
 3. Configure filtering (file types, size limits)
-
-## Configuration Comparison
-
-| Feature | Approach A (ACP) | Approach B (Direct) |
-|---------|------------------|---------------------|
-| Uses claude-agent-acp | ✅ Yes | ❌ No |
-| Uses Claude Agent SDK | ✅ Yes | ❌ No |
-| Inherits env vars | ✅ Yes | ⚠️ Manual |
-| Agent mode | ✅ Full | ⚠️ Limited |
-| Parallel sub-agents | ✅ Up to 10 | ⚠️ Limited |
-| Streaming responses | ✅ Yes | ✅ Yes |
-| Configuration sync | ✅ Automatic | ❌ Manual |
-| Setup complexity | ⚠️ Medium | ✅ Simple |
 
 ## Troubleshooting
 
@@ -309,30 +255,6 @@ ANTHROPIC_CUSTOM_HEADERS=x-litellm-customer-id: <your.email@caci.com>
    ```
 3. Restart IntelliJ
 
-**Solution 4: LaunchAgent (macOS only)**
-
-Create `~/Library/LaunchAgents/com.jetbrains.intellij.env.plist`:
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>Label</key>
-  <string>com.jetbrains.intellij.env</string>
-  <key>ProgramArguments</key>
-  <array>
-    <string>sh</string>
-    <string>-c</string>
-    <string>launchctl setenv ANTHROPIC_BASE_URL https://litellm.csde.caci.com</string>
-  </array>
-  <key>RunAtLoad</key>
-  <true/>
-</dict>
-</plist>
-```
-
-Load: `launchctl load ~/Library/LaunchAgents/com.jetbrains.intellij.env.plist`
-
 ### ACP Handshake Failure
 
 **Symptom:** "Connection failed" or "ACP handshake failed" when testing connection
@@ -346,9 +268,6 @@ Load: `launchctl load ~/Library/LaunchAgents/com.jetbrains.intellij.env.plist`
 ```bash
 # Start claude-agent-acp
 claude-agent-acp
-
-# Send initialization (JSON-RPC 2.0)
-# Should respond with capabilities
 # Press Ctrl+C to exit
 ```
 
@@ -373,21 +292,6 @@ curl -H "Authorization: Bearer $ANTHROPIC_AUTH_TOKEN" \
 1. Token expired - contact CACI IT for new token
 2. Wrong base URL - verify `https://litellm.csde.caci.com` (no trailing slash)
 3. Custom header format wrong - check email address
-
-### Model Not Found
-
-**Symptom:** "Model not available" or "Invalid model name"
-
-**Check:** Model name in configuration: `anthropic.claude-sonnet-4-5-20250929-v1:0`
-
-**Solutions:**
-1. Verify model name exactly matches (case-sensitive)
-2. Check available models:
-   ```bash
-   curl -H "Authorization: Bearer $ANTHROPIC_AUTH_TOKEN" \
-        https://litellm.csde.caci.com/v1/models
-   ```
-3. Contact CACI IT if model is not available
 
 ### DevoxxGenie Panel Not Visible
 
@@ -431,66 +335,214 @@ curl -H "Authorization: Bearer $ANTHROPIC_AUTH_TOKEN" \
 2. Find Privacy section
 3. Uncheck analytics options
 
-## Advanced Features
+## Advanced DevoxxGenie Features
 
-### Model Context Protocol (MCP)
+For comprehensive configuration guide including Agent Mode, RAG, MCP, and all advanced settings, see:
 
-DevoxxGenie supports MCP for accessing external tools:
+**[DEVOXXGENIE_COMPLETE_SETUP.md](DEVOXXGENIE_COMPLETE_SETUP.md)** - Complete configuration guide
 
-1. Settings → Tools → DevoxxGenie → MCP
-2. Add MCP servers (STDIO, HTTP SSE, or HTTP transport)
-3. Configure with `mcpServers` JSON format
-4. Import/export configurations
+---
 
-**Note:** MCP is for external tools, not for AI provider connection
+# Productivity Tools
 
-### Custom Prompts
+## Jira Integration
 
-Create custom prompt templates:
+Integrate Jira issue tracking directly in IntelliJ IDEA for streamlined workflow.
 
-1. DevoxxGenie panel → Settings icon
-2. Add custom prompts for common tasks
-3. Use variables: `{selection}`, `{filename}`, etc.
+### Jira Integration Plugin (Recommended)
 
-### Security Scanning
+**Third-party plugin with rich UI and advanced features by PLATIS Solutions**
 
-Integrate security tools:
+#### Installation
 
-1. Settings → Tools → DevoxxGenie → Security
-2. Configure paths for:
-   - Gitleaks (secrets detection)
-   - OpenGrep (SAST)
-   - Trivy (dependency scanning)
-3. Scan code directly from DevoxxGenie panel
+1. Open IntelliJ IDEA
+2. Settings (⌘,) → Plugins → Marketplace
+3. Search for **"Jira Integration"**
+4. Look for publisher: **PLATIS Solutions**
+5. Click **Install**
+6. Restart IntelliJ IDEA
 
-## References
+#### Configuration
 
+1. Settings → Tools → **Jira Integration**
+2. Click **+** to add Jira server
+3. Configure connection:
+   - **Server URL:** Your Jira instance
+     - Example: `https://jira.caci.com`
+     - Or: `https://caci.atlassian.net`
+   - **Username:** Your CACI email
+   - **Authentication:** API Token (recommended)
+4. Click **Test Connection** to verify
+5. Click **OK** to save
+
+**Generate API Token:**
+1. Go to: https://id.atlassian.com/manage-profile/security/api-tokens
+2. Click **Create API token**
+3. Name it: `IntelliJ IDEA`
+4. Copy token and paste into IntelliJ settings
+5. Store token securely (won't be shown again)
+
+#### Key Features
+
+**Rich Issue Viewer:**
+- Browse issues in dedicated tool window
+- View/edit issue details (description, comments, attachments)
+- Edit fields (status, assignee, priority, labels)
+- Add comments and work logs
+- View issue history
+
+**JQL Query Support:**
+- Run custom JQL queries
+- Save favorite queries
+- Filter by project, status, assignee
+- Example: `project = ABC AND assignee = currentUser() AND status != Done`
+
+**Issue Management:**
+- Create new issues from IDE
+- Transition issues through workflow
+- Log time spent on issues
+- Link commits to issues (use `ABC-1234:` format in commit messages)
+
+**Workflow Automation:**
+- Start/stop work timers
+- Assign issues
+- Update custom fields
+- Track time automatically
+
+#### Usage Examples
+
+**Open Jira Tool Window:**
+- View → Tool Windows → **Jira**
+- Or click Jira icon in toolbar
+
+**Browse Issues:**
+1. Open Jira tool window
+2. Select project from dropdown
+3. Use filters or JQL queries
+4. Double-click issue to view details
+
+**Link Commit to Issue:**
+```
+ABC-1234: Fixed authentication bug
+
+- Implemented OAuth2 token refresh
+- Added JWT validation
+- Updated security configuration
+```
+
+#### Integration with DevoxxGenie AI
+
+**Use Jira context in AI prompts:**
+
+1. Open issue in Jira tool window
+2. Copy issue description or acceptance criteria
+3. Paste into DevoxxGenie chat:
+
+```
+Implement this Jira requirement:
+
+[ABC-1234] Add user authentication
+- Support OAuth2 and JWT
+- Store tokens in HttpOnly cookies
+- Implement refresh token rotation
+
+Generate implementation plan and code.
+```
+
+**AI-assisted development from Jira:**
+- Ask DevoxxGenie to implement features from Jira issues
+- Use acceptance criteria as requirements
+- Generate tests based on Jira scenarios
+- Get code reviews aligned with issue requirements
+
+#### Troubleshooting
+
+**Connection Failed:**
+- Verify server URL includes `https://`
+- Check API token is valid (regenerate if needed)
+- Verify username (email address)
+- Ensure VPN connected (if CACI requires it)
+
+**Issues Not Loading:**
+- Check JQL query syntax
+- Verify project permissions
+- Try simpler query: `assignee = currentUser()`
+- Refresh issue list
+
+**API Token Not Working:**
+- Regenerate at Jira → Profile → Security → API Tokens
+- Copy immediately (can't be viewed later)
+- For Jira Cloud: Use email as username
+- For Jira Server: Use Jira username
+
+#### Security Considerations
+
+**API Token Storage:**
+- Stored in IntelliJ credential store (encrypted)
+- macOS: Keychain
+- Windows: Credential Manager
+- Linux: KWallet or GNOME Keyring
+
+**Token Security:**
+- API tokens have same permissions as your account
+- Can read/write all accessible issues
+- Treat like passwords (don't share)
+- Rotate every 90 days (recommended)
+
+**VPN Requirements:**
+- CACI Jira may require VPN
+- Plugin fails if VPN disconnected
+- Reconnect VPN and refresh
+
+---
+
+# References
+
+## AI Assistant Documentation
 - [DevoxxGenie Documentation](https://genie.devoxx.com/docs)
+- [DevoxxGenie Complete Setup](DEVOXXGENIE_COMPLETE_SETUP.md) - Full configuration guide
+- [DevoxxGenie RAG Setup](DEVOXXGENIE_RAG_SETUP.md) - Semantic search configuration
 - [claude-agent-acp GitHub](https://github.com/agentclientprotocol/claude-agent-acp)
 - [Agent Client Protocol Specification](https://github.com/agentclientprotocol/acp-spec)
-- [CLAUDE_CODE_SETUP.md](CLAUDE_CODE_SETUP.md) - Terminal Claude Code setup
 - [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview)
+
+## Environment Setup
+- [CLAUDE_CODE_SETUP.md](CLAUDE_CODE_SETUP.md) - Terminal Claude Code setup
+- [MACOS_TROUBLESHOOTING.md](MACOS_TROUBLESHOOTING.md) - macOS-specific issues
+
+## Productivity Tools
+- [Jira Integration Plugin](https://plugins.jetbrains.com/search?search=jira%20integration) - JetBrains Marketplace
+- [Atlassian API Tokens](https://id.atlassian.com/manage-profile/security/api-tokens) - Generate API tokens
 
 ## Getting Help
 
 **For issues with:**
 - **claude-agent-acp** - GitHub issues or caci-tools repository
 - **DevoxxGenie** - Plugin GitHub or JetBrains support
+- **Jira Integration** - PLATIS Solutions support
 - **LiteLLM proxy/tokens** - CACI IT Help Desk
 - **IntelliJ IDEA** - JetBrains support
 
-## Summary
+---
 
-**Recommended Setup:**
+## Quick Start Summary
+
+### AI Assistant Setup
 1. Install claude-agent-acp: `npm install -g @agentclientprotocol/claude-agent-acp`
 2. Install DevoxxGenie plugin in IntelliJ
 3. Launch IntelliJ from terminal: `source ~/.zprofile && open -a "IntelliJ IDEA"`
 4. Configure ACP runner in DevoxxGenie settings
 5. Test connection and start using AI features
 
+### Jira Integration Setup
+1. Install Jira Integration plugin from Marketplace
+2. Generate API token at Atlassian
+3. Configure Jira server in Settings → Tools → Jira Integration
+4. Test connection and start browsing issues
+
 **Key Advantages:**
-- ✅ Same configuration as Claude Code (unified)
-- ✅ Full Claude Agent SDK features
-- ✅ Agent mode with autonomous exploration
+- ✅ Same AI configuration as Claude Code (unified environment)
+- ✅ Full Claude Agent SDK features (agent mode, autonomous exploration)
 - ✅ Parallel sub-agents for complex tasks
-- ✅ Environment variable inheritance (no manual config)
+- ✅ Jira integration for seamless issue tracking
+- ✅ AI-assisted development from Jira requirements
